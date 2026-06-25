@@ -1,0 +1,77 @@
+name: Firmware Automation
+
+on:
+
+  workflow_dispatch:
+
+  schedule:
+
+    # Daily 08:00 IST
+    - cron: '30 2 * * *'
+
+    # Weekly Sunday 09:00 IST
+    - cron: '30 3 * * 0'
+
+jobs:
+
+  firmware-test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Packages
+      run: |
+        pip install -r requirements.txt
+
+    - name: Create Report Folder
+      run: |
+        mkdir -p reports
+        mkdir -p logs
+
+    - name: Execute Tests
+      continue-on-error: true
+
+      run: |
+        pytest tests \
+        --html=reports/report.html \
+        --self-contained-html
+
+    - name: Upload Artifacts
+
+      uses: actions/upload-artifact@v4
+
+      if: always()
+
+      with:
+
+        name: Firmware-Test-Report
+
+        path: |
+          reports/
+          logs/
+
+    - name: Send Email
+
+      if: always()
+
+      env:
+
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+
+        MAIL_TO: ${{ secrets.MAIL_TO }}
+
+        ARTIFACT_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      run: |
+        python utils/mail_sender.py

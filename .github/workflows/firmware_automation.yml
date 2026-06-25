@@ -1,7 +1,6 @@
 name: Firmware Automation
 
 on:
-
   workflow_dispatch:
 
   schedule:
@@ -13,69 +12,55 @@ on:
     - cron: '30 3 * * 0'
 
 jobs:
-
   firmware-test:
 
     runs-on: ubuntu-latest
 
     steps:
 
-    - name: Checkout Code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v5
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
-    - name: Install Packages
+    - name: Install Dependencies
       run: |
         pip install -r requirements.txt
 
-    - name: Set PYTHONPATH
-      run: |
-         echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
-
-    - name: Create Report Folder
-      run: |
-        mkdir -p reports
-        mkdir -p logs
-
     - name: Execute Tests
       continue-on-error: true
-
       run: |
         pytest tests \
         --html=reports/report.html \
         --self-contained-html
 
     - name: Upload Artifacts
-
-      uses: actions/upload-artifact@v4
-
       if: always()
-
+      uses: actions/upload-artifact@v4
       with:
-
         name: Firmware-Test-Report
-
         path: |
           reports/
           logs/
 
-    - name: Send Email
-
+    - name: Send Email Notification
       if: always()
+      uses: dawidd6/action-send-mail@v6
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        secure: false
+        username: ${{ secrets.SMTP_USER }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: Firmware Automation Execution Report
+        to: ${{ secrets.MAIL_TO }}
+        from: GitHub Actions
+        body: |
+          Firmware Automation Run Completed
 
-      env:
+          Repository:
+          ${{ github.repository }}
 
-        SMTP_USER: ${{ secrets.SMTP_USER }}
-
-        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-
-        MAIL_TO: ${{ secrets.MAIL_TO }}
-
-        ARTIFACT_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-      run: |
-        python utils/mail_sender.py
+          Run URL:
+          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
